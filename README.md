@@ -21,7 +21,6 @@ Failed compilations, test-suite violations, or sanitizer alerts serve as reliabl
   ```bash
   sudo apt update
   sudo apt install docker.io
-````
 
 * **Python 3.8+** with:
 
