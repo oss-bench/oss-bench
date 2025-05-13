@@ -1,4 +1,3 @@
-````markdown
 ## OSS-Bench: Benchmark Generator for Coding LLMs
 
 *Beta — Development Ongoing*
