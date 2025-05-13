@@ -1,66 +1,104 @@
+````markdown
 ## OSS-Bench: Benchmark Generator for Coding LLMs
 
-**(Beta - Development Ongoing)**
+*Beta — Development Ongoing*
 
-*Contact me: yuancheng@comp.nus.edu.sg*
+**Contact:** yuancheng@comp.nus.edu.sg
 
-**OSS-BENCH, a benchmark generator that automatically constructs large-scale, live evaluation tasks from real-world open-source software. OSS-BENCH replaces individual functions from mature open-source projects with LLM outputs against three natural metrics—compilability, functional test, and memory safety—using reliable ground truth: failed compilations, test-suite violations, or sanitizer alerts indicate problematic code.**
+OSS-Bench automatically constructs large-scale, live evaluation tasks from real-world open-source software. It replaces individual functions in mature projects with LLM-generated code and evaluates them against three natural metrics:
 
-#### Prerequasites
+1. **Compilability** — does the code compile?
+2. **Functional correctness** — does it pass the project’s test suite?
+3. **Memory safety** — are there sanitizer-reported errors?
 
-System: Ubuntu
+Failed compilations, test-suite violations, or sanitizer alerts serve as reliable ground truth for problematic code.
 
-OSS-Bench requires docker to instantite OSS and evaluate LLMs:
+---
 
-```bash
-apt install docker.io
-```
+### Prerequisites
 
-Pull pre-build docker images for your need:
+- **Operating System:** Ubuntu (tested on 20.04+)
+- **Docker:** to instantiate the OSS environment and run evaluations  
+  ```bash
+  sudo apt update
+  sudo apt install docker.io
+````
 
-```bash
-docker pull 0599jiangyc/flowfusion4llm:latest # OSS = PHP
-docker pull 0599jiangyc/sqlite4llm:latest # OSS = SQLite
-```
+* **Python 3.8+** with:
 
-Python libraries:
+  ```bash
+  pip install tqdm sqlite3
+  ```
 
-```bash
-pip install tqdm
-pip install sqlite3
-```
+---
 
-#### Instructions
+### Docker Images
 
-You can use function.py to extract C functions from OSS
-
-You can use llm.py to collect LLMs output (ollama APIs).
-
-The extracted function for PHP is ready at ./data/php-src/function.db
-
-The example LLM output for GPT-O1 is at ./data/php-src/gpt-o1-seed0/function.db
-
-*Step 1: Evaluating Compilability*
+Pull the prebuilt images for your target OSS:
 
 ```bash
-python3 main.py --model gpt-o1-seed0 --OSS php-src --linear-execution
+# For PHP
+docker pull 0599jiangyc/flowfusion4llm:latest
+
+# For SQLite
+docker pull 0599jiangyc/sqlite4llm:latest
 ```
 
-*Step 2: Evaluating Functionality and Memory Safety*
+---
 
-```bash
-python3 main.py --model gpt-o1-seed0 --OSS php-src --dataset-generation
-```
+### Getting Started
 
-open another shell, after 3-5 iterations ready for the dataset, then start
+1. **Extract functions**
+   Use `function.py` to extract C functions from the OSS codebase:
 
-```bash
-python3 main.py --model gpt-o1-seed0 --OSS php-src --test
-```
+   ```bash
+   python3 function.py --oss php-src
+   ```
 
-*Step 3: Scoring*
+   * The extracted PHP functions will be saved to `./data/php-src/function.db`.
+   * Example LLM outputs (GPT-O1) are in `./data/php-src/gpt-o1-seed0/function.db`.
 
-```bash
-python3 score.py
-```
+2. **Collect LLM outputs**
+   Use `llm.py` (with Ollama APIs) to generate candidate implementations:
 
+   ```bash
+   python3 llm.py --model gpt-o1-seed0 --oss php-src
+   ```
+
+3. **Evaluate compilability**
+
+   ```bash
+   python3 main.py \
+     --model gpt-o1-seed0 \
+     --oss php-src \
+     --linear-execution
+   ```
+
+4. **Evaluate functionality & memory safety**
+   First, generate the dataset:
+
+   ```bash
+   python3 main.py \
+     --model gpt-o1-seed0 \
+     --oss php-src \
+     --dataset-generation
+   ```
+
+   After 3–5 iterations (to build up the test dataset), run:
+
+   ```bash
+   python3 main.py \
+     --model gpt-o1-seed0 \
+     --oss php-src \
+     --test
+   ```
+
+5. **Compute scores**
+
+   ```bash
+   python3 score.py
+   ```
+
+---
+
+Happy benchmarking! 🚀
