@@ -1,27 +1,30 @@
 ## OSS-Bench: Benchmark Generator for Coding LLMs
 
+A new release will be updated in June 2025 with various improvements. Stay tuned!
+
 *Beta — Development Ongoing*
 
-**Contact:** yuancheng@comp.nus.edu.sg
+**Contact:** [yuancheng@comp.nus.edu.sg](mailto:yuancheng@comp.nus.edu.sg)
 
-OSS-Bench automatically constructs large-scale, live evaluation tasks from real-world open-source software. It replaces individual functions in mature projects with LLM-generated code and evaluates them against three natural metrics:
+**OSS-Bench** automatically constructs large-scale, live evaluation tasks from real-world open-source software. It replaces individual functions in mature projects with LLM-generated code and evaluates them using three key metrics:
 
-1. **Compilability** — does the code compile?
-2. **Functional correctness** — does it pass the project’s test suite?
-3. **Memory safety** — are there sanitizer-reported errors?
+1. **Compilability** — Does the code compile?
+2. **Functional Correctness** — Does it pass the project’s test suite?
+3. **Memory Safety** — Are there sanitizer-reported errors?
 
-Failed compilations, test-suite violations, or sanitizer alerts serve as reliable ground truth for problematic code.
+Failed compilations, test-suite violations, and sanitizer alerts serve as reliable ground truth for identifying problematic code.
 
 ---
 
 ### Prerequisites
 
-- **Operating System:** Ubuntu (tested on 20.04+)
-- **Docker:** to instantiate the OSS environment and run evaluations  
+* **Operating System:** Ubuntu (tested on 20.04+)
+* **Docker:** Required to instantiate the OSS environment and run evaluations
+
   ```bash
   sudo apt update
   sudo apt install docker.io
-
+  ```
 * **Python 3.8+** with:
 
   ```bash
@@ -32,7 +35,7 @@ Failed compilations, test-suite violations, or sanitizer alerts serve as reliabl
 
 ### Docker Images
 
-Pull the prebuilt images for your target OSS:
+Pull the prebuilt Docker images for your target OSS:
 
 ```bash
 # For PHP
@@ -44,59 +47,93 @@ docker pull 0599jiangyc/sqlite4llm:latest
 
 ---
 
-### Getting Started
+### Getting Started with OSS-Bench (PHP)
 
-1. **Extract functions**
-   Use `function.py` to extract C functions from the OSS codebase:
+#### 1. Extract Functions
 
-   ```bash
-   python3 function.py --oss php-src
-   ```
+We have pre-extracted C functions from the [php-src](https://github.com/php/php-src) repository at [this commit](https://github.com/php/php-src/commit/3786cff1f3f3d755f346ade78979976fee92bb48).
 
-   * The extracted PHP functions will be saved to `./data/php-src/function.db`.
-   * Example LLM outputs (GPT-O1) are in `./data/php-src/gpt-o1-seed0/function.db`.
+These are stored in `./data/php-src/function.db` with the following schema:
 
-2. **Collect LLM outputs**
-   Use `llm.py` (with Ollama APIs) to generate candidate implementations:
+* `id` (INTEGER PRIMARY KEY AUTOINCREMENT): 1, 2, 3, ...
+* `function_index` (TEXT, UNIQUE): `./php-src/main/output.c:77:20`
+* `filepath` (TEXT): `./php-src/main/output.c`
+* `token_number` (INT): Word count (e.g., 10)
+* `original_function` (TEXT): Original function code
+* `optimized_function` (TEXT): Initially `-`, to be filled with LLM output
 
-   ```bash
-   python3 llm.py --model gpt-o1-seed0 --oss php-src
-   ```
+#### 2. Collect LLM Outputs
 
-3. **Evaluate compilability**
+* The default prompt is defined in `./prompt.py`.
+* Use `./llm.py` to generate LLM outputs via the **Ollama** platform.
+* Alternatively, use your own method:
 
-   ```bash
-   python3 main.py \
-     --model gpt-o1-seed0 \
-     --oss php-src \
-     --linear-execution
-   ```
+  1. Create a new folder: `./data/php-src/{model-name}`
+  2. Copy the database:
 
-4. **Evaluate functionality & memory safety**
-   First, generate the dataset:
+     ```bash
+     cp ./data/php-src/function.db ./data/php-src/{model-name}/function.db
+     ```
+  3. Populate the `optimized_function` field in the copied DB with your LLM outputs.
 
-   ```bash
-   python3 main.py \
-     --model gpt-o1-seed0 \
-     --oss php-src \
-     --dataset-generation
-   ```
+#### 3. Evaluate Compilability
 
-   After 3–5 iterations (to build up the test dataset), run:
+Run the compilability check for all generated functions:
 
-   ```bash
-   python3 main.py \
-     --model gpt-o1-seed0 \
-     --oss php-src \
-     --test
-   ```
+```bash
+python3 main.py \
+  --model gpt-o1-seed0 \
+  --oss php-src \
+  --linear-execution
+```
 
-5. **Compute scores**
+Replace `gpt-o1-seed0` with your model folder name in `./data/php-src`.
 
-   ```bash
-   python3 score.py
-   ```
+This step may take several hours. *(TODO: Add parallel execution support)*
+
+Output includes:
+
+* `invalid_functions`
+* `linear_compile_fail_logs`
+* `fuzzresults` (optional; if sanitizer alerts were triggered)
+
+#### 4. Evaluate Functionality & Memory Safety
+
+**Step 1:** In one terminal (or tmux session), run dataset generation:
+
+```bash
+python3 main.py \
+  --model gpt-o1-seed0 \
+  --oss php-src \
+  --dataset-generation
+```
+
+This creates:
+
+* `dataset.db`
+* `patches/` directory in `./data/php-src/{model-name}/`
+
+**Step 2:** In a second terminal, start the test execution:
+
+```bash
+python3 main.py \
+  --model gpt-o1-seed0 \
+  --oss php-src \
+  --test
+```
+
+This produces:
+
+* `testlog` in `./data/php-src/{model-name}/`
+
+#### 5. Compute Final Scores
+
+Run the scoring script to summarize results:
+
+```bash
+python3 score.py --model gpt-o1-seed0
+```
 
 ---
 
-Happy benchmarking! 🚀
+**Happy benchmarking! 🚀**

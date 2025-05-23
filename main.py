@@ -45,22 +45,17 @@ class OSSBench:
         invalid_functions = []
 
         if os.path.exists(f"./data/{self.OSS}/{self.model}/invalid_functions"):
-            print("linear execution skipped.")
             f = open(f"./data/{self.OSS}/{self.model}/invalid_functions", "r")
             invalid_functions = eval(f.read())
             f.close()
             self.valid_functions = list(set(self.valid_functions) - set(invalid_functions))
             start_index = invalid_functions[-1]
         
-        for i in tqdm(range(start_index, len(self.valid_functions))):
+        for i in range(start_index, len(self.valid_functions)):
+            print(f" # check compilability of {i}/{len(self.valid_functions)} function", end=": ")
             function_id = i+1
-            while True:
-                fid, function_index, filepath, token_number, old, new = self.function_db.fetch_function_by_id(function_id)
-                if new!="-":
-                    break
-                else:
-                    print("waiting for optimized function from LLM")
-                    time.sleep(1)
+            fid, function_index, filepath, token_number, old, new = self.function_db.fetch_function_by_id(function_id)
+
             try:
                 self.replace_function(f"./data/{self.OSS}/{filepath}", old, new)
             except:
@@ -68,6 +63,7 @@ class OSSBench:
                 f = open(f"./data/{self.OSS}/{self.model}/invalid_functions", "w")
                 f.write(str(invalid_functions))
                 f.close()
+                print(f"replacing failed")
                 continue
             
             os.system(f"cd ./data/{self.OSS}/{self.OSS} && git diff *.c > ./test.diff && git restore *.c")
@@ -78,12 +74,12 @@ class OSSBench:
             docker_label = f"linear_{self.model}_{self.OSS}"
 
             try:
-                os.system(f"docker kill {docker_label}")
+                os.system(f"docker kill {docker_label} > /dev/null")
             except:
                 pass
 
             try:
-                os.system(f"docker rm {docker_label}")
+                os.system(f"docker rm {docker_label} > /dev/null")
             except:
                 pass
             
@@ -91,10 +87,10 @@ class OSSBench:
                 os.remove(f"/tmp/{docker_label}_make.log")
 
             if self.OSS=="php-src":
-                os.system(f"docker run --name {docker_label} -dit 0599jiangyc/flowfusion4llm:latest bash")
-                os.system(f"docker cp ./data/php-src/php-src/test.diff {docker_label}:/home/phpfuzz/WorkSpace/flowfusion/php-src/")
-                os.system(f"docker exec -it {docker_label} bash -c 'cd /home/phpfuzz/WorkSpace/flowfusion/php-src/ && git apply ./test.diff && timeout 600 make -j16 > ./make.log 2>&1'")
-                os.system(f"docker cp {docker_label}:/home/phpfuzz/WorkSpace/flowfusion/php-src/make.log /tmp/{docker_label}_make.log")
+                os.system(f"docker run --name {docker_label} -dit 0599jiangyc/flowfusion4llm:latest bash > /dev/null")
+                os.system(f"docker cp ./data/php-src/php-src/test.diff {docker_label}:/home/phpfuzz/WorkSpace/flowfusion/php-src/ > /dev/null")
+                os.system(f"docker exec -it {docker_label} bash -c 'cd /home/phpfuzz/WorkSpace/flowfusion/php-src/ && git apply ./test.diff > /dev/null && timeout 600 make -j16 > ./make.log 2>&1'")
+                os.system(f"docker cp {docker_label}:/home/phpfuzz/WorkSpace/flowfusion/php-src/make.log /tmp/{docker_label}_make.log > /dev/null")
             elif self.OSS=="sqlite":
                 os.system(f"docker run --name {docker_label} -dit 0599jiangyc/sqlite4llm:latest bash")
                 os.system(f"docker cp ./data/sqlite/sqlite/test.diff {docker_label}:/home/test/sqlite/")
@@ -115,7 +111,7 @@ class OSSBench:
             compile_result = f.read()
             f.close()
             if "Sanitizer:" in compile_result:
-                print("Sanitizer Alert!")
+                print("Failed: Sanitizer Alert!")
                 invalid_functions.append(function_id)
                 if not os.path.exists(f"./data/{self.OSS}/{self.model}/fuzzresults"):
                     os.mkdir(f"./data/{self.OSS}/{self.model}/fuzzresults")
@@ -129,7 +125,7 @@ class OSSBench:
                 f.close()
             # excluding non-affect functions
             elif (self.OSS=="php-src" and "libtool" not in compile_result) or (self.OSS=="sqlite" and "make: Nothing to be done for 'all'." in compile_result):            
-                print("make nothing")
+                print("Excluded: make nothing")
                 make_nothing_functions.append(function_id)
                 f = open(make_nothing_function_file, "w")
                 f.write(str(make_nothing_functions))
@@ -176,7 +172,7 @@ class OSSBench:
         current_iteration = 1
 
         while function_id_index<1000000:
-            print("iteration:", current_iteration)
+            print(f"\n### generate dataset for {current_iteration}/1000 iteration ###")
 
             function_patch_count = 0
             
@@ -203,12 +199,12 @@ class OSSBench:
 
             # kill docker 
             try:
-                os.system(f"docker kill {docker_label}")
+                os.system(f"docker kill {docker_label} > /dev/null")
             except:
                 pass
 
             try:
-                os.system(f"docker rm {docker_label}")
+                os.system(f"docker rm {docker_label} > /dev/null")
             except:
                 pass
             
@@ -217,9 +213,9 @@ class OSSBench:
             
             if self.OSS=="php-src":
                 os.system(f"docker run --name {docker_label} -dit 0599jiangyc/flowfusion4llm:latest bash")
-                os.system(f"docker cp ./data/php-src/php-src/test.diff {docker_label}:/home/phpfuzz/WorkSpace/flowfusion/php-src/")
-                os.system(f"docker exec -it {docker_label} bash -c 'cd /home/phpfuzz/WorkSpace/flowfusion/php-src/ && git apply ./test.diff && timeout 600 make -j16 > ./make.log 2>&1'")
-                os.system(f"docker cp {docker_label}:/home/phpfuzz/WorkSpace/flowfusion/php-src/make.log /tmp/{docker_label}_make.log")
+                os.system(f"docker cp ./data/php-src/php-src/test.diff {docker_label}:/home/phpfuzz/WorkSpace/flowfusion/php-src/ > /dev/null")
+                os.system(f"docker exec -it {docker_label} bash -c 'cd /home/phpfuzz/WorkSpace/flowfusion/php-src/ && git apply ./test.diff 2>&1 > /dev/null && timeout 600 make -j16 > ./make.log 2>&1'")
+                os.system(f"docker cp {docker_label}:/home/phpfuzz/WorkSpace/flowfusion/php-src/make.log /tmp/{docker_label}_make.log > /dev/null")
 
                 if not os.path.exists(f"/tmp/{docker_label}_make.log"):
                     print("patch error.. sometimes it happens... fix me")
@@ -243,7 +239,6 @@ class OSSBench:
             compile_result = f.read()
             f.close()
             if "Sanitizer:" in compile_result:
-                print("Sanitizer Alert!")
                 invalid_functions.append(function_id)
                 if not os.path.exists(f"./data/{self.OSS}/{self.model}/fuzzresults"):
                     os.mkdir(f"./data/{self.OSS}/{self.model}/fuzzresults")
@@ -252,8 +247,9 @@ class OSSBench:
                 f = open(f"./data/{self.OSS}/{self.model}/fuzzresults/compilefails/datagen_{function_id_index}.log", 'w', encoding="iso-8859-1")
                 f.write(str(patch_function_ids)+"\n"+compile_result)
                 f.close()
+                print("## failed. need re-generation ##")
             elif (self.OSS=="php-src" and "Build complete." not in compile_result) or (self.OSS=="sqlite" and "error: " in compile_result):
-                continue
+                print("## failed. need re-generation ##")
             else:
                 if not os.path.exists(f"./data/{self.OSS}/{self.model}/patches/"):
                     os.mkdir(f"./data/{self.OSS}/{self.model}/patches/")
