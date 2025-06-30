@@ -1,7 +1,5 @@
 ## OSS-Bench: Benchmark Generator for Coding LLMs
 
-A new release will be updated in June 2025 with various improvements. Stay tuned!
-
 *Beta — Development Ongoing*
 
 **Contact:** [yuancheng@comp.nus.edu.sg](mailto:yuancheng@comp.nus.edu.sg)
